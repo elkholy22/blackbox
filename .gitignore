@@ -1,0 +1,8 @@
+/build/
+/.venv/
+__pycache__/
+.pytest_cache/
+*.dump
+compile_commands.json
+.vscode/
+.idea/

@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: ${{ matrix.preset }} (${{ matrix.compiler }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { preset: debug, compiler: g++ }
+          - { preset: debug, compiler: clang++ }
+          - { preset: release, compiler: g++ }
+          - { preset: asan, compiler: g++ }
+    env:
+      CXX: ${{ matrix.compiler }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Straight into the setup-python interpreter: it sets Python3_ROOT_DIR, so CMake
+      # finds this one and not a venv.
+      - name: Install test dependencies
+        run: python -m pip install -r requirements-dev.txt
+
+      # ASan fails to map its shadow memory with the high mmap randomization of newer
+      # runner kernels.
+      - name: Lower ASLR entropy for ASan
+        if: matrix.preset == 'asan'
+        run: sudo sysctl vm.mmap_rnd_bits=28
+
+      - name: Configure
+        run: cmake --preset ${{ matrix.preset }}
+
+      - name: Build
+        run: cmake --build --preset ${{ matrix.preset }} --parallel
+
+      - name: Test
+        run: ctest --preset ${{ matrix.preset }}
